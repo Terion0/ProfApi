@@ -19,7 +19,7 @@ namespace ProfApi.Controllers
         public FollowsController(ProfDbContext context, ILogger<FollowsController> logger)
         {
             _context = context;
-            _logger = logger;ass
+            _logger = logger;
         }
 
         [HttpGet("followers/{userId}")]

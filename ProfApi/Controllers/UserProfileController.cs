@@ -64,7 +64,45 @@ namespace ProfApi.Controllers
             return Ok(result);  
         }
 
+        [Authorize]
+        [HttpGet("Workshop")]
+        public async Task<IActionResult> GetShops([FromQuery] int lastUserId = 0, [FromQuery] string name = "")
+        {
+            int pageSize = 10;
 
+            var shopList = _context.Users
+                .Where(user => (lastUserId == 0 || user.UserId > lastUserId) &&
+                               (string.IsNullOrEmpty(name) || user.UserName.Contains(name)) &&
+                               user.Type == UserType.Workshop)  
+                .Select(user => new UserListDTO
+                {
+                    UserId = user.UserId,
+                    UserName = user.UserName,
+                    ProfilePicture = user.ProfilePicture
+                });
+
+            var totalRecords = await shopList.CountAsync();
+
+            var shops = await shopList
+                .Take(pageSize)
+                .ToListAsync();
+
+            bool hasMore = shops.Count == pageSize;
+
+            int lastId = shops.Any() ? shops.Last().UserId : 0;
+
+            var result = new ScrollDTO<UserListDTO>
+            {
+                Data = shops,
+                TotalRecords = totalRecords,
+                LastId = lastId,
+                HasMore = hasMore
+            };
+
+            _logger.LogInformation("Listado paginado de talleres");
+
+            return Ok(result);
+        }
 
         [Authorize]
         [HttpGet("Users/GetUserById/{userId}")]
@@ -107,7 +145,7 @@ namespace ProfApi.Controllers
         {
 
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-
+            var userType = int.Parse(User.FindFirst("UserType")?.Value);
             if (string.IsNullOrEmpty(userCreateDto.Name) || string.IsNullOrEmpty(userCreateDto.UserName))
             {
                 _logger.LogWarning("Faltan datos obligatorios para crear el usuario.");
@@ -136,7 +174,8 @@ namespace ProfApi.Controllers
                         Description = userCreateDto.Description,
                         Adress = userCreateDto.Adress,
                         CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
+                        UpdatedAt = DateTime.UtcNow,
+                        
 
                     };
                     _context.Users.Add(newUser);

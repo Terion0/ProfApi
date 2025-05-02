@@ -12,8 +12,8 @@ using ProfApi.DBcontext;
 namespace ProfApi.Migrations
 {
     [DbContext(typeof(ProfDbContext))]
-    [Migration("20250429131627_Initial_Mig")]
-    partial class Initial_Mig
+    [Migration("20250502161712_Init_Mig")]
+    partial class Init_Mig
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -69,6 +69,9 @@ namespace ProfApi.Migrations
                     b.Property<string>("ProfilePicture")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");

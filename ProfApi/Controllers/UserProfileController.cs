@@ -66,7 +66,7 @@ namespace ProfApi.Controllers
 
         [Authorize]
         [HttpGet("Workshop")]
-        public async Task<IActionResult> GetShops([FromQuery] int lastUserId = 0, [FromQuery] string name = "")
+        public async Task<IActionResult> GetWorkshop([FromQuery] int lastUserId = 0, [FromQuery] string name = "")
         {
             int pageSize = 10;
 
@@ -145,7 +145,7 @@ namespace ProfApi.Controllers
         {
 
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-            var userType = int.Parse(User.FindFirst("UserType")?.Value);
+            var userTypeClaim = int.Parse(User.FindFirst("UserType")?.Value);
             if (string.IsNullOrEmpty(userCreateDto.Name) || string.IsNullOrEmpty(userCreateDto.UserName))
             {
                 _logger.LogWarning("Faltan datos obligatorios para crear el usuario.");
@@ -175,6 +175,7 @@ namespace ProfApi.Controllers
                         Adress = userCreateDto.Adress,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
+                        Type=(UserType)userTypeClaim
                         
 
                     };

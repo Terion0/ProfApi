@@ -8,6 +8,5 @@ namespace ProfApi.Models
         public ICollection<Follower> Following { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
-        public UserType Type { get; set; }
     }
 }

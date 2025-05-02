@@ -38,7 +38,8 @@ namespace ProfApi.Controllers
                 {
                     UserId = user.UserId,
                     UserName = user.UserName,
-                    ProfilePicture = user.ProfilePicture
+                    ProfilePicture = user.ProfilePicture,   
+                  
                 });
 
             var totalRecords = await userList.CountAsync();  
@@ -128,7 +129,9 @@ namespace ProfApi.Controllers
                     Description = user.Description,
                     Adress = user.Adress,
                     CountFollowers = user.CountFollowers,
-                    CountFollowing = user.CountFollowing
+                    CountFollowing = user.CountFollowing,
+                    Type = user.Type
+                   
                 };
 
                 _logger.LogInformation("Detalles del usuario");
@@ -144,8 +147,9 @@ namespace ProfApi.Controllers
         public async Task<IActionResult> CreateUser([FromBody] UserCreateDTO userCreateDto)
         {
 
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-            var userTypeClaim = int.Parse(User.FindFirst("UserType")?.Value);
+            int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+            int userTypeClaim = int.Parse(User.FindFirst("UserType")?.Value);
+            UserType userType = (UserType)userTypeClaim;
             if (string.IsNullOrEmpty(userCreateDto.Name) || string.IsNullOrEmpty(userCreateDto.UserName))
             {
                 _logger.LogWarning("Faltan datos obligatorios para crear el usuario.");
@@ -175,8 +179,7 @@ namespace ProfApi.Controllers
                         Adress = userCreateDto.Adress,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
-                        Type=(UserType)userTypeClaim
-                        
+                        Type = userType
 
                     };
                     _context.Users.Add(newUser);

@@ -144,12 +144,12 @@ namespace ProfApi.Controllers
 
         [Authorize]
         [HttpPost("UserCreate")]
-        public async Task<IActionResult> CreateUser([FromBody] UserCreateDTO userCreateDto)
+        public async Task<IActionResult> CreateUser([FromForm] UserCreateDTO userCreateDto, IFormFile profilePicture)
         {
-
             int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
             int userTypeClaim = int.Parse(User.FindFirst("UserType")?.Value);
             UserType userType = (UserType)userTypeClaim;
+
             if (string.IsNullOrEmpty(userCreateDto.Name) || string.IsNullOrEmpty(userCreateDto.UserName))
             {
                 _logger.LogWarning("Faltan datos obligatorios para crear el usuario.");
@@ -157,7 +157,6 @@ namespace ProfApi.Controllers
             }
             else
             {
-             
                 var existingUser = await _context.Users
                     .FirstOrDefaultAsync(u => u.UserName == userCreateDto.UserName);
 
@@ -168,46 +167,96 @@ namespace ProfApi.Controllers
                 }
                 else
                 {
-              
-                    var newUser = new User
+                    if (profilePicture != null && profilePicture.Length > 0)
                     {
-                        UserId = userId, 
-                        ProfilePicture = userCreateDto.ProfilePicture,
-                        Name = userCreateDto.Name,
-                        UserName = userCreateDto.UserName,
-                        Description = userCreateDto.Description,
-                        Adress = userCreateDto.Adress,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow,
-                        Type = userType
+                        var fileName = $"{userId}_{profilePicture.FileName}";
+                        var filePath = Path.Combine(Directory.GetCurrentDirectory(), "profile_images", fileName);
 
-                    };
-                    _context.Users.Add(newUser);
-                    await _context.SaveChangesAsync();
-                    _logger.LogInformation("Nuevo usuario creado");
-                    return Ok();
-                  
+                        var directoryPath = Path.GetDirectoryName(filePath);
+                        if (!Directory.Exists(directoryPath))
+                        {
+                            Directory.CreateDirectory(directoryPath);
+                        }
+                        using (var stream = new FileStream(filePath, FileMode.Create))
+                        {
+                            await profilePicture.CopyToAsync(stream);
+                        }
+
+                        string ProfilePicture = $"/profile_images/{fileName}";
+
+                        var newUser = new User
+                        {
+                            UserId = userId,
+                            ProfilePicture = ProfilePicture,
+                            Name = userCreateDto.Name,
+                            UserName = userCreateDto.UserName,
+                            Description = userCreateDto.Description,
+                            Adress = userCreateDto.Address,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow,
+                            Type = userType
+                        };
+
+                        _context.Users.Add(newUser);
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation("Nuevo usuario creado");
+                        return Ok();
+                    }
+                    else
+                    {
+                        _logger.LogWarning("No ha subido imagen.");
+                        return BadRequest("No ha subido imagen");
+                    }
                 }
             }
         }
 
+
         [Authorize]
         [HttpPatch("UserUpdate")]
-        public async Task<IActionResult> UpdateUser([FromBody] UserCreateDTO userDTO)
+        public async Task<IActionResult> UpdateUser([FromForm] UserCreateDTO userDTO, IFormFile profilePicture)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
             var user = await _context.Users.FindAsync(userId);
+
             if (user != null)
             {
-                user.ProfilePicture = userDTO.ProfilePicture;
+                if (profilePicture != null && profilePicture.Length > 0)
+                {
+                    if (!string.IsNullOrEmpty(user.ProfilePicture))
+                    {
+                        var oldImagePath = Path.Combine(Directory.GetCurrentDirectory(), user.ProfilePicture.TrimStart('/'));
+                        if (System.IO.File.Exists(oldImagePath))
+                        {
+                            System.IO.File.Delete(oldImagePath);
+                        }
+                    }
+                    var fileName = $"{userId}_{profilePicture.FileName}";
+                    var filePath = Path.Combine(Directory.GetCurrentDirectory(), "profile_images", fileName);
+
+                    var directoryPath = Path.GetDirectoryName(filePath);
+                    if (!Directory.Exists(directoryPath))
+                    {
+                        Directory.CreateDirectory(directoryPath);
+                    }
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await profilePicture.CopyToAsync(stream);
+                    }
+
+                    user.ProfilePicture = $"/profile_images/{fileName}";
+                }
+
                 user.Name = userDTO.Name;
                 user.UserName = userDTO.UserName;
                 user.Description = userDTO.Description;
-                user.Adress = userDTO.Adress;
+                user.Adress = userDTO.Address;
                 user.UpdatedAt = DateTime.UtcNow;
 
                 _logger.LogInformation("perfil  updateado");
-                _context.Users.Update(user);  
+                _context.Users.Update(user);
+                await _context.SaveChangesAsync();
                 return Ok("perfil updateado");
             }
             else

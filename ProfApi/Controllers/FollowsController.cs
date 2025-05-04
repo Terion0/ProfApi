@@ -31,13 +31,11 @@ namespace ProfApi.Controllers
                 .Where(f => f.FollowingId == userId)
                 .Select(f => f.Followero);
 
-            // Si se proporciona un nombre, filtrar por él
             if (!string.IsNullOrEmpty(name))
             {
                 followersUser = followersUser.Where(u => u.UserName.Contains(name));
             }
 
-            // Filtrar por lastUserId si se proporciona
             var follows = followersUser.Where(u => lastUserId == 0 || u.UserId > lastUserId)
                 .Select(u => new UserListDTO
                 {
@@ -58,7 +56,6 @@ namespace ProfApi.Controllers
 
             int lastId = followers.LastOrDefault()?.UserId ?? 0;
 
-            // Crear el DTO para scroll infinito
             ScrollDTO<UserListDTO> result = new()
             {
                 Data = followers,

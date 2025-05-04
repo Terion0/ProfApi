@@ -5,6 +5,7 @@ using ProfApi.DBcontext;
 using ProfApi.Models;
 using ProfApi.Models.ScrollDTO;
 using ProfApi.Models.UserDTO;
+using ProfApi.Services;
 using System.Security.Claims;
 
 namespace ProfApi.Controllers
@@ -16,14 +17,16 @@ namespace ProfApi.Controllers
 
         private readonly ProfDbContext _context;
         private readonly ILogger<UserProfileController> _logger;
+        private readonly FileFolderService _fileFolderService;
+        private string [] _allowedExtensions = { ".jpg", ".jpeg", ".png" };
 
-        public UserProfileController(ProfDbContext context, ILogger<UserProfileController> logger)
+
+        public UserProfileController(ProfDbContext context, ILogger<UserProfileController> logger, FileFolderService fileFolderService)
         {
             _context = context;
             _logger = logger;
+            _fileFolderService = fileFolderService;
         }
-
-
 
         [Authorize]
         [HttpGet("Users")]
@@ -140,8 +143,6 @@ namespace ProfApi.Controllers
             }
         }
 
-
-
         [Authorize]
         [HttpPost("UserCreate")]
         public async Task<IActionResult> CreateUser([FromForm] UserCreateDTO userCreateDto, IFormFile profilePicture)
@@ -150,67 +151,63 @@ namespace ProfApi.Controllers
             int userTypeClaim = int.Parse(User.FindFirst("UserType")?.Value);
             UserType userType = (UserType)userTypeClaim;
 
+            long maxSize = 5 * 1024 * 1024;
+            string targetFolder = "profile_images"; 
+
+          
             if (string.IsNullOrEmpty(userCreateDto.Name) || string.IsNullOrEmpty(userCreateDto.UserName))
-            {
-                _logger.LogWarning("Faltan datos obligatorios para crear el usuario.");
                 return BadRequest("El nombre y el nombre de usuario son obligatorios.");
+
+            var existingUser = await _context.Users
+                .FirstOrDefaultAsync(u => u.UserName == userCreateDto.UserName);
+
+            if (existingUser != null)
+                return Conflict("El nombre de usuario ya está en uso.");
+
+            if (profilePicture != null && profilePicture.Length > 0)
+            {
+                var fileExtension = Path.GetExtension(profilePicture.FileName);
+
+                if (!_fileFolderService.IsValidFileExtension(fileExtension))
+                    return BadRequest("Solo se permiten archivos JPG o PNG.");
+
+                if (!_fileFolderService.IsValidFileSize(profilePicture.Length, maxSize))
+                    return BadRequest("El tamaño del archivo no debe exceder los 5 MB.");
+
+
+                var profilePicturePath = await _fileFolderService.SaveFileAsync(profilePicture, userId, targetFolder);
+
+                if (profilePicturePath == null)
+                {
+                    _logger.LogError("No se pudo guardar la imagen del perfil.");
+                    return BadRequest("Hubo un error al guardar la imagen.");
+                }
+
+                var newUser = new User
+                {
+                    UserId = userId,
+                    ProfilePicture = profilePicturePath,
+                    Name = userCreateDto.Name,
+                    UserName = userCreateDto.UserName,
+                    Description = userCreateDto.Description,
+                    Adress = userCreateDto.Address,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Type = userType
+                };
+
+                _context.Users.Add(newUser);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Nuevo usuario creado");
+
+                return Ok();
             }
             else
             {
-                var existingUser = await _context.Users
-                    .FirstOrDefaultAsync(u => u.UserName == userCreateDto.UserName);
-
-                if (existingUser != null)
-                {
-                    _logger.LogWarning("El nombre de usuario ya está en uso.");
-                    return Conflict("El nombre de usuario ya está en uso.");
-                }
-                else
-                {
-                    if (profilePicture != null && profilePicture.Length > 0)
-                    {
-                        var fileName = $"{userId}_{profilePicture.FileName}";
-                        var filePath = Path.Combine(Directory.GetCurrentDirectory(), "profile_images", fileName);
-
-                        var directoryPath = Path.GetDirectoryName(filePath);
-                        if (!Directory.Exists(directoryPath))
-                        {
-                            Directory.CreateDirectory(directoryPath);
-                        }
-                        using (var stream = new FileStream(filePath, FileMode.Create))
-                        {
-                            await profilePicture.CopyToAsync(stream);
-                        }
-
-                        string ProfilePicture = $"/profile_images/{fileName}";
-
-                        var newUser = new User
-                        {
-                            UserId = userId,
-                            ProfilePicture = ProfilePicture,
-                            Name = userCreateDto.Name,
-                            UserName = userCreateDto.UserName,
-                            Description = userCreateDto.Description,
-                            Adress = userCreateDto.Address,
-                            CreatedAt = DateTime.UtcNow,
-                            UpdatedAt = DateTime.UtcNow,
-                            Type = userType
-                        };
-
-                        _context.Users.Add(newUser);
-                        await _context.SaveChangesAsync();
-                        _logger.LogInformation("Nuevo usuario creado");
-                        return Ok();
-                    }
-                    else
-                    {
-                        _logger.LogWarning("No ha subido imagen.");
-                        return BadRequest("No ha subido imagen");
-                    }
-                }
+                _logger.LogWarning("No ha subido imagen.");
+                return BadRequest("No ha subido imagen.");
             }
         }
-
 
         [Authorize]
         [HttpPatch("UserUpdate")]
@@ -223,29 +220,26 @@ namespace ProfApi.Controllers
             {
                 if (profilePicture != null && profilePicture.Length > 0)
                 {
+                    var fileExtension = Path.GetExtension(profilePicture.FileName).ToLower();
+                    long maxSize = 5 * 1024 * 1024; // 5 MB
+
+                    if (!_fileFolderService.IsValidFileExtension(fileExtension))
+                        return BadRequest("Solo se permiten archivos JPG o PNG.");
+
+                    if (!_fileFolderService.IsValidFileSize(profilePicture.Length, maxSize))
+                        return BadRequest("El tamaño del archivo no debe exceder los 5 MB.");
+
                     if (!string.IsNullOrEmpty(user.ProfilePicture))
                     {
                         var oldImagePath = Path.Combine(Directory.GetCurrentDirectory(), user.ProfilePicture.TrimStart('/'));
-                        if (System.IO.File.Exists(oldImagePath))
-                        {
-                            System.IO.File.Delete(oldImagePath);
-                        }
+                        if (!_fileFolderService.DeleteFile(oldImagePath))  
+                            return BadRequest("Hubo un problema al intentar eliminar la imagen anterior.");
                     }
-                    var fileName = $"{userId}_{profilePicture.FileName}";
-                    var filePath = Path.Combine(Directory.GetCurrentDirectory(), "profile_images", fileName);
+                    var newFilePath = await _fileFolderService.SaveFileAsync(profilePicture, userId, "profile_images");
+                    if (newFilePath == null)
+                        return BadRequest("Hubo un error al guardar la imagen.");
 
-                    var directoryPath = Path.GetDirectoryName(filePath);
-                    if (!Directory.Exists(directoryPath))
-                    {
-                        Directory.CreateDirectory(directoryPath);
-                    }
-
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await profilePicture.CopyToAsync(stream);
-                    }
-
-                    user.ProfilePicture = $"/profile_images/{fileName}";
+                    user.ProfilePicture = newFilePath; 
                 }
 
                 user.Name = userDTO.Name;
@@ -254,14 +248,15 @@ namespace ProfApi.Controllers
                 user.Adress = userDTO.Address;
                 user.UpdatedAt = DateTime.UtcNow;
 
-                _logger.LogInformation("perfil  updateado");
+                _logger.LogInformation("Perfil actualizado");
                 _context.Users.Update(user);
                 await _context.SaveChangesAsync();
-                return Ok("perfil updateado");
+
+                return Ok("Perfil actualizado");
             }
             else
             {
-                _logger.LogWarning("Perfil no existe");
+                _logger.LogWarning("El perfil no existe");
                 return NotFound();
             }
         }

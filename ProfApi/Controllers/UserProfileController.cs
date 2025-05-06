@@ -173,7 +173,8 @@ namespace ProfApi.Controllers
                 if (!_fileFolderService.IsValidFileSize(userCreateDto.profilePicture.Length, maxSize))
                     return BadRequest("El tamaño del archivo no debe exceder los 5 MB.");
 
-                var profilePicturePath = await _fileFolderService.SaveFileAsync(userCreateDto.profilePicture, userId, targetFolder);
+                string picUID = $"{Guid.NewGuid()}";
+                var profilePicturePath = await _fileFolderService.SaveFileAsync(userCreateDto.profilePicture, picUID, targetFolder);
 
                 if (profilePicturePath == null)
                 {
@@ -233,7 +234,9 @@ namespace ProfApi.Controllers
                         if (!_fileFolderService.DeleteFile(oldImagePath))  
                             return BadRequest("Hubo un problema al intentar eliminar la imagen anterior.");
                     }
-                    var newFilePath = await _fileFolderService.SaveFileAsync(userDTO.profilePicture, userId, "profile_images");
+                    string picUID = $"{Guid.NewGuid()}";
+
+                    var newFilePath = await _fileFolderService.SaveFileAsync(userDTO.profilePicture, picUID, "profile_images");
                     if (newFilePath == null)
                         return BadRequest("Hubo un error al guardar la imagen.");
 

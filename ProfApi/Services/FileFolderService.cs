@@ -36,7 +36,7 @@ namespace ProfApi.Services
             }
             return true;
         }
-        public async Task<string> SaveFileAsync(IFormFile file, int userId, string targetFolder)
+        public async Task<string> SaveFileAsync(IFormFile file, string userId, string targetFolder)
         {
             try
             {

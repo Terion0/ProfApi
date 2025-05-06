@@ -145,7 +145,7 @@ namespace ProfApi.Controllers
 
         [Authorize]
         [HttpPost("UserCreate")]
-        public async Task<IActionResult> CreateUser([FromForm] UserCreateDTO userCreateDto, IFormFile profilePicture)
+        public async Task<IActionResult> CreateUser([FromForm] UserCreateDTO userCreateDto)
         {
             int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
             int userTypeClaim = int.Parse(User.FindFirst("UserType")?.Value);
@@ -154,7 +154,6 @@ namespace ProfApi.Controllers
             long maxSize = 5 * 1024 * 1024;
             string targetFolder = "profile_images"; 
 
-          
             if (string.IsNullOrEmpty(userCreateDto.Name) || string.IsNullOrEmpty(userCreateDto.UserName))
                 return BadRequest("El nombre y el nombre de usuario son obligatorios.");
 
@@ -164,18 +163,17 @@ namespace ProfApi.Controllers
             if (existingUser != null)
                 return Conflict("El nombre de usuario ya está en uso.");
 
-            if (profilePicture != null && profilePicture.Length > 0)
+            if (userCreateDto.profilePicture != null && userCreateDto.profilePicture.Length > 0)
             {
-                var fileExtension = Path.GetExtension(profilePicture.FileName);
+                var fileExtension = Path.GetExtension(userCreateDto.profilePicture.FileName);
 
                 if (!_fileFolderService.IsValidFileExtension(fileExtension))
                     return BadRequest("Solo se permiten archivos JPG o PNG.");
 
-                if (!_fileFolderService.IsValidFileSize(profilePicture.Length, maxSize))
+                if (!_fileFolderService.IsValidFileSize(userCreateDto.profilePicture.Length, maxSize))
                     return BadRequest("El tamaño del archivo no debe exceder los 5 MB.");
 
-
-                var profilePicturePath = await _fileFolderService.SaveFileAsync(profilePicture, userId, targetFolder);
+                var profilePicturePath = await _fileFolderService.SaveFileAsync(userCreateDto.profilePicture, userId, targetFolder);
 
                 if (profilePicturePath == null)
                 {
@@ -211,22 +209,22 @@ namespace ProfApi.Controllers
 
         [Authorize]
         [HttpPatch("UserUpdate")]
-        public async Task<IActionResult> UpdateUser([FromForm] UserCreateDTO userDTO, IFormFile profilePicture)
+        public async Task<IActionResult> UpdateUser([FromForm] UserCreateDTO userDTO)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
             var user = await _context.Users.FindAsync(userId);
 
             if (user != null)
             {
-                if (profilePicture != null && profilePicture.Length > 0)
+                if (userDTO.profilePicture != null && userDTO.profilePicture.Length > 0)
                 {
-                    var fileExtension = Path.GetExtension(profilePicture.FileName).ToLower();
+                    var fileExtension = Path.GetExtension(userDTO.profilePicture.FileName).ToLower();
                     long maxSize = 5 * 1024 * 1024; // 5 MB
 
                     if (!_fileFolderService.IsValidFileExtension(fileExtension))
                         return BadRequest("Solo se permiten archivos JPG o PNG.");
 
-                    if (!_fileFolderService.IsValidFileSize(profilePicture.Length, maxSize))
+                    if (!_fileFolderService.IsValidFileSize(userDTO.profilePicture.Length, maxSize))
                         return BadRequest("El tamaño del archivo no debe exceder los 5 MB.");
 
                     if (!string.IsNullOrEmpty(user.ProfilePicture))
@@ -235,7 +233,7 @@ namespace ProfApi.Controllers
                         if (!_fileFolderService.DeleteFile(oldImagePath))  
                             return BadRequest("Hubo un problema al intentar eliminar la imagen anterior.");
                     }
-                    var newFilePath = await _fileFolderService.SaveFileAsync(profilePicture, userId, "profile_images");
+                    var newFilePath = await _fileFolderService.SaveFileAsync(userDTO.profilePicture, userId, "profile_images");
                     if (newFilePath == null)
                         return BadRequest("Hubo un error al guardar la imagen.");
 

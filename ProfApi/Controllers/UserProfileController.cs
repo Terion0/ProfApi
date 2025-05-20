@@ -18,7 +18,6 @@ namespace ProfApi.Controllers
         private readonly ProfDbContext _context;
         private readonly ILogger<UserProfileController> _logger;
         private readonly FileFolderService _fileFolderService;
-        private string [] _allowedExtensions = { ".jpg", ".jpeg", ".png" };
 
 
         public UserProfileController(ProfDbContext context, ILogger<UserProfileController> logger, FileFolderService fileFolderService)

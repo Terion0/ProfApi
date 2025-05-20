@@ -118,6 +118,16 @@ namespace ProfApi.Controllers
             return Ok(result);
         }
 
+
+        [HttpGet("IsFollowing")]
+        public async Task<IActionResult> IsFollowing(int userId, int otherUserId)
+        {
+            bool isFollowing = await _context.Followers
+                .AnyAsync(f => f.Followero.UserId == userId && f.FollowingId == otherUserId);
+
+            return Ok(isFollowing);
+        }
+
         [Authorize]
         [HttpPost("StartFollowing")]
         public async Task<IActionResult> StartFollowing(int profileId) {

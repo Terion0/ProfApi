@@ -27,4 +27,6 @@ RUN dotnet publish "./ProfApi.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+USER $APP_UID
+RUN mkdir -p /app/profile_images && chown $APP_UID:$APP_UID /app/profile_images && chmod 777 /app/profile_images
 ENTRYPOINT ["dotnet", "ProfApi.dll"]

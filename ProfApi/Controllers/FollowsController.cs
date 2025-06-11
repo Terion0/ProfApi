@@ -36,7 +36,10 @@ namespace ProfApi.Controllers
                 followersUser = followersUser.Where(u => u.UserName.Contains(name));
             }
 
-            var follows = followersUser.Where(u => lastUserId == 0 || u.UserId > lastUserId)
+            followersUser = followersUser.OrderBy(u => u.UserId);
+
+            var follows = followersUser
+                .Where(u => lastUserId == 0 || u.UserId > lastUserId)
                 .Select(u => new UserListDTO
                 {
                     UserId = u.UserId,
@@ -45,21 +48,22 @@ namespace ProfApi.Controllers
                 });
 
             var followers = await follows
-                .Take(pageSize)
+                .Take(pageSize + 1) 
                 .ToListAsync();
 
-            var totalFollowers = await _context.Followers
-                .Where(f => f.FollowingId == userId)
-                .CountAsync();
+            bool hasMore = followers.Count > pageSize;
 
-            bool hasMore = followers.Count < totalFollowers;
+            if (hasMore)
+            {
+                followers.RemoveAt(pageSize); 
+            }
 
             int lastId = followers.LastOrDefault()?.UserId ?? 0;
 
             ScrollDTO<UserListDTO> result = new()
             {
                 Data = followers,
-                TotalRecords = totalFollowers,
+                TotalRecords = followers.Count,
                 LastId = lastId,
                 HasMore = hasMore
             };
@@ -69,23 +73,25 @@ namespace ProfApi.Controllers
             return Ok(result);
         }
 
+
         [HttpGet("following/{userId}")]
         public async Task<IActionResult> GetFollowing(int userId, [FromQuery] int lastUserId = 0, [FromQuery] string name = null)
         {
             int pageSize = 10;
 
             var followingUser = _context.Followers
-                .Where(f => f.FollowerId == userId) 
+                .Where(f => f.FollowerId == userId)
                 .Select(f => f.Following);
 
-     
             if (!string.IsNullOrEmpty(name))
             {
-                followingUser = followingUser.Where(u => u.UserName.Contains(name)); 
+                followingUser = followingUser.Where(u => u.UserName.Contains(name));
             }
 
+            followingUser = followingUser.OrderBy(u => u.UserId);
+
             var following = followingUser
-                .Where(u => lastUserId == 0 || u.UserId > lastUserId) 
+                .Where(u => lastUserId == 0 || u.UserId > lastUserId)
                 .Select(u => new UserListDTO
                 {
                     UserId = u.UserId,
@@ -94,21 +100,22 @@ namespace ProfApi.Controllers
                 });
 
             var followingList = await following
-                .Take(pageSize) 
+                .Take(pageSize + 1)
                 .ToListAsync();
 
-            var totalFollowing = await _context.Followers
-                .Where(f => f.FollowerId == userId)
-                .CountAsync();
+            bool hasMore = followingList.Count > pageSize;
 
-            bool hasMore = followingList.Count < totalFollowing;
+            if (hasMore)
+            {
+                followingList.RemoveAt(pageSize);
+            }
 
             int lastId = followingList.LastOrDefault()?.UserId ?? 0;
 
             ScrollDTO<UserListDTO> result = new()
             {
                 Data = followingList,
-                TotalRecords = totalFollowing,
+                TotalRecords = followingList.Count,
                 LastId = lastId,
                 HasMore = hasMore
             };
@@ -119,7 +126,8 @@ namespace ProfApi.Controllers
         }
 
 
-        [HttpGet("IsFollowing")]
+
+        [HttpGet("IsFollowing/{userId}/{otherUserId}")]
         public async Task<IActionResult> IsFollowing(int userId, int otherUserId)
         {
             bool isFollowing = await _context.Followers
